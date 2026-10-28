@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: GPL-2.0
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cloche"
+dynamic = ["version"]
+description = "Run a program in an unprivileged Linux sandbox, from Python or the command line"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "GPL-2.0-only" }
+authors = [{ name = "PacketFive" }]
+keywords = ["sandbox", "namespaces", "seccomp", "isolation", "reproducible-builds", "oci"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Security",
+  "Topic :: Software Development :: Build Tools",
+  "Typing :: Typed",
+]
+dependencies = ["pydantic>=2.6,<3"]
+
+[project.urls]
+Homepage = "https://github.com/PacketFive/cloche"
+Source = "https://github.com/PacketFive/cloche"
+Issues = "https://github.com/PacketFive/cloche/issues"
+
+[project.optional-dependencies]
+# Everything the quality gates need. The pybootstrap name on PyPI belongs to
+# an unrelated placeholder, so it is installed from its repository.
+dev = [
+  "pybootstrap @ git+https://github.com/packetfive/pybootstrap.git",
+  "ruff>=0.4",
+  "pyright>=1.1",
+  "pytest>=8",
+  "pytest-cov>=5",
+]
+
+[project.scripts]
+cloche = "cloche.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "cloche.__version__" }
+
+# The repository's src directory is the cloche package itself.
+[tool.setuptools]
+packages = ["cloche"]
+package-dir = { cloche = "src" }
+
+# PEP 561 marker: the package ships its own type hints.
+[tool.setuptools.package-data]
+cloche = ["py.typed"]
+
+# Quality gates, run with 'pybootstrap check'.
+[tool.pybootstrap]
+gates = ["format", "lint", "typecheck", "test"]
+coverage-min = 80
+coverage-package = "cloche"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "D", "S"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.per-file-ignores]
+# Tests use assert and run programs, and test names describe themselves.
+"tests/*" = ["S101", "S603", "S607", "D"]
+
+# Tests import the installed package by name, since src/ has no
+# cloche/ directory for ruff to discover it from.
+[tool.ruff.lint.isort]
+known-first-party = ["cloche"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+include = ["src", "tests"]
+reportMissingImports = "error"
+reportMissingTypeStubs = "none"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov-report=term-missing --import-mode=importlib"
+markers = [
+  "requires_userns: needs unprivileged user namespaces and a C compiler that links statically",
+]
