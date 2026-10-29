@@ -46,7 +46,7 @@ from .probe import BACKENDS, BackendStatus, backend_status
 from .runner import Outcome, run
 from .spec import OciConfig, SandboxJob, SandboxSpec, make_spec, oci_config
 
-__version__ = "0.0.0"
+__version__ = "1.0.0"
 
 __all__ = [
     "BACKENDS",

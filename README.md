@@ -40,7 +40,7 @@ setgid bits are dropped. A special file in an output fails the run.
 
 ## Status
 
-Alpha. Three backends run the same sandbox:
+Stable since 1.0.0. Three backends run the same sandbox:
 
 | Backend | Runs the program in | Needs |
 | --- | --- | --- |
@@ -55,22 +55,27 @@ command line and is untested. The coverage floor is 80%.
 
 ## Install
 
-Cloche is not on PyPI yet. To use it in another project, install it from
-its repository:
+To use Cloche in another project:
 
 ```sh
-pip install git+https://github.com/PacketFive/cloche.git
+pip install cloche
 ```
+
+or add `cloche>=1.0,<2` to the project's dependencies. Version 1 keeps the
+names in `cloche.__all__`, the fields of its models and the guarantees
+above stable for every 1.x release.
 
 To work on Cloche itself:
 
 ```sh
-pip install --config-settings editable_mode=strict -e '.[dev]'
+python -m pip install --upgrade "pip>=25.1"
+pip install --group dev
+pip install --config-settings editable_mode=strict -e .
 pybootstrap check
 ```
 
 Python 3.12 or later is required. The only runtime dependency is
-Pydantic 2. The `dev` extra installs
+Pydantic 2. The `dev` dependency group installs
 [pybootstrap](https://github.com/packetfive/pybootstrap) and the tools its
 gates drive: ruff, pyright, and pytest with coverage. The tests in
 `tests/test_run.py` run real sandboxes on every backend; they need
@@ -82,6 +87,11 @@ monitor is in `PATH`.
 Run `cloche status` to see whether the sandbox can run on a machine and,
 if not, why. On Ubuntu 23.10 and later, AppArmor may restrict
 unprivileged user namespaces; the reason then names the sysctl involved.
+
+Releases are made by pushing a tag `vX.Y.Z` that matches `__version__`
+and has a section in `CHANGELOG.md`. The release workflow runs the gates,
+builds the package, publishes it to PyPI through trusted publishing with
+attestations, and creates the GitHub release.
 
 ## Use
 
@@ -218,4 +228,4 @@ backend options.
 
 ## License
 
-GPL-2.0-only.
+GPL-2.0-only. See [LICENSE](LICENSE).

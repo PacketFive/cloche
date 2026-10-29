@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 
 [build-system]
-requires = ["setuptools>=69"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,18 +10,19 @@ dynamic = ["version"]
 description = "Run a program in an unprivileged Linux sandbox, from Python or the command line"
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "GPL-2.0-only" }
+license = "GPL-2.0-only"
+license-files = ["LICENSE"]
 authors = [{ name = "PacketFive" }]
 keywords = [
   "sandbox", "namespaces", "seccomp", "isolation", "reproducible-builds", "oci", "microvm",
 ]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
   "Operating System :: POSIX :: Linux",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Security",
   "Topic :: Software Development :: Build Tools",
   "Typing :: Typed",
@@ -33,9 +34,11 @@ Homepage = "https://github.com/PacketFive/cloche"
 Source = "https://github.com/PacketFive/cloche"
 Issues = "https://github.com/PacketFive/cloche/issues"
 
-[project.optional-dependencies]
-# Everything the quality gates need. The pybootstrap name on PyPI belongs to
-# an unrelated placeholder, so it is installed from its repository.
+[dependency-groups]
+# Everything the quality gates need, installed with "pip install --group dev"
+# (pip 25.1 or later). Groups are not part of the package metadata, so the
+# pybootstrap name on PyPI, which belongs to an unrelated placeholder, can be
+# replaced by its repository here.
 dev = [
   "pybootstrap @ git+https://github.com/packetfive/pybootstrap.git",
   "ruff>=0.4",

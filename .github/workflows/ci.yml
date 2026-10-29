@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: GPL-2.0
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    name: Quality gates (Python ${{ matrix.python }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      # Ubuntu 24.04 restricts unprivileged user namespaces through AppArmor,
+      # and the sandbox tests need them.
+      - name: Allow unprivileged user namespaces
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Install the OCI runtimes the tests use
+        run: sudo apt-get update && sudo apt-get install -y crun runc
+
+      - name: Install the project and its dev group
+        run: |
+          python -m pip install --upgrade "pip>=25.1"
+          pip install --group dev
+          pip install --config-settings editable_mode=strict -e .
+
+      # The github format turns findings into annotations on the changed lines.
+      - name: Run the quality gates
+        run: pybootstrap check --junit-dir .quality --format github
+
+      - name: Keep the gate results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-${{ matrix.python }}
+          path: .quality/junit-*.xml

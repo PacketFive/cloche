@@ -1,0 +1,93 @@
+# SPDX-License-Identifier: GPL-2.0
+# Pushing a tag vX.Y.Z runs the gates, builds the package once, publishes it
+# to PyPI through trusted publishing and creates the GitHub release.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    needs: gates
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check that the tag matches the version
+        run: |
+          version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' src/__init__.py)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match version $version"
+            exit 1
+          fi
+
+      - name: Check that the changelog has the version
+        run: grep -q "^## \[${GITHUB_REF_NAME#v}\]" CHANGELOG.md
+
+      - name: Build
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          twine check --strict dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: pypi
+      url: https://pypi.org/project/cloche/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      # Uploads PEP 740 attestations along with the files.
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          awk -v v="$version" '/^## \[/ { found = index($0, "[" v "]") > 0; next } found' \
+            CHANGELOG.md > notes.md
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag \
+            --title "cloche $version" --notes-file notes.md
