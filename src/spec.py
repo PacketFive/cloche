@@ -313,7 +313,7 @@ class OciLinux(_Oci):
 class OciConfig(_Oci):
     """An OCI runtime configuration, ``config.json``."""
 
-    oci_version: str = "1.2.0"
+    oci_version: str = "1.0.2"
     process: OciProcess
     root: OciRoot = OciRoot()
     hostname: str

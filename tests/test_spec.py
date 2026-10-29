@@ -174,7 +174,7 @@ def test_oci_config() -> None:
     cmd = command(args=("-c", "true"))
     spec = make_spec(cmd, Limits(max_open_files=64), uid=1000, gid=100, machine="aarch64")
     value = json.loads(oci_config(spec).model_dump_json())
-    assert value["ociVersion"] == "1.2.0"
+    assert value["ociVersion"] == "1.0.2"
     assert value["root"] == {"path": "rootfs", "readonly": False}
     process = value["process"]
     assert process["args"] == [cmd.program, "-c", "true"]
