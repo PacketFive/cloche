@@ -105,7 +105,7 @@ class NamespaceBackend:
         ``log_fd``. The caller keeps both read ends and closes these.
         """
         process = subprocess.Popen(  # noqa: S603
-            [sys.executable, "-I", "-m", __name__, str(status_fd)],
+            [sys.executable, "-I", "-c", _HELPER, str(status_fd)],
             stdin=subprocess.PIPE,
             stdout=log_fd,
             stderr=log_fd,
@@ -379,6 +379,10 @@ def _run(job: SandboxJob, report: BinaryIO) -> HelperReport:
         except (OSError, ValueError) as error:
             return HelperReport(kind="failed", error=f"cannot copy output {output}: {error}")
     return HelperReport(kind="finished")
+
+
+_HELPER = f"import sys; from {__name__} import main; sys.exit(main(sys.argv))"
+"""The helper's program. ``-m`` would warn, since the package imports this module."""
 
 
 def main(argv: list[str]) -> int:

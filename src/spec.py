@@ -370,9 +370,11 @@ class HelperReport(Model):
 
     ``started`` carries the host pid of the program's PID 1, so the runner
     can kill the run. ``finished`` or ``failed`` ends the run; ``failed``
-    carries the reason.
+    carries the reason. A backend that boots a machine reports how long
+    the boot took in ``boot_seconds``.
     """
 
     kind: Literal["started", "finished", "failed"]
     pid: int | None = None
     error: str | None = None
+    boot_seconds: float | None = None

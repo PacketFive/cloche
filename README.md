@@ -5,6 +5,8 @@ library first, with a small command on top. It needs no root, no daemon
 and no container image: the program sees only the host paths you bind
 into the sandbox, read-only, and a few empty writable directories. When
 the program succeeds, the outputs you declared are copied out.
+The same sandbox can also run under a rootless OCI runtime, or in a
+small virtual machine with its own kernel for a stronger boundary.
 
 Cloche began as the build sandbox of
 [PyrixOS](https://github.com/PacketFive/PyrixOS) and its package manager
@@ -38,10 +40,18 @@ setgid bits are dropped. A special file in an output fails the run.
 
 ## Status
 
-Alpha. The namespace backend works on x86_64 and aarch64 Linux with
-unprivileged user namespaces enabled. `oci` and `microvm` backends are
-planned; `cloche oci-config` already prints the OCI runtime configuration
-of a sandbox, for use with runc or crun. The coverage floor is 80%.
+Alpha. Three backends run the same sandbox:
+
+| Backend | Runs the program in | Needs |
+| --- | --- | --- |
+| `namespaces` (default) | Linux namespaces Cloche creates itself | Unprivileged user namespaces |
+| `oci` | A rootless OCI runtime: crun, runc or youki | The runtime, and unprivileged user namespaces |
+| `microvm` | A virtual machine with its own kernel, under Firecracker, Cloud Hypervisor or OpenVMM | KVM, the monitor, `mkfs.ext4`, a guest kernel and the guest init |
+
+The namespace backend works on x86_64 and aarch64 Linux. The OCI backend
+is tested with runc and crun, and the microVM backend on x86_64 with
+Firecracker and Cloud Hypervisor. OpenVMM support follows its documented
+command line and is untested. The coverage floor is 80%.
 
 ## Install
 
@@ -63,9 +73,11 @@ Python 3.12 or later is required. The only runtime dependency is
 Pydantic 2. The `dev` extra installs
 [pybootstrap](https://github.com/packetfive/pybootstrap) and the tools its
 gates drive: ruff, pyright, and pytest with coverage. The tests in
-`tests/test_run.py` run real sandboxes; they need unprivileged user
-namespaces and a C compiler that links statically, and are skipped
-otherwise.
+`tests/test_run.py` run real sandboxes on every backend; they need
+unprivileged user namespaces and a C compiler that links statically, and
+are skipped otherwise. The OCI cases also need a runtime, and the microVM
+cases run only when `CLOCHE_TEST_KERNEL` names a guest kernel and the
+monitor is in `PATH`.
 
 Run `cloche status` to see whether the sandbox can run on a machine and,
 if not, why. On Ubuntu 23.10 and later, AppArmor may restrict
@@ -126,6 +138,41 @@ list of mounts, ID maps, limits and seccomp rules a backend applies, and
 `select_backend` returns one or raises; Cloche never falls back to a
 weaker backend.
 
+### Other backends
+
+`run` uses the namespace backend unless `backend` names another:
+
+```python
+from cloche import MicroVMConfig, run, select_backend
+
+oci = select_backend("oci", runtime="crun")
+vm = select_backend(
+    "microvm",
+    microvm=MicroVMConfig(vmm="firecracker", kernel="/srv/vm/vmlinux", init="/srv/vm/init"),
+)
+outcome = run(command, tempfile.mkdtemp(), Limits(timeout=60), backend=vm)
+```
+
+The OCI backend writes the configuration `oci_config` returns into a
+bundle and runs the runtime's `create`, `start` and `delete` as the
+calling user. No daemon and no image are involved.
+
+The microVM backend boots a virtual machine with no network device. The
+guest kernel is an uncompressed `vmlinux` with virtio block, virtio vsock,
+ext4, tmpfs and devtmpfs built in, such as the guest kernels Firecracker
+publishes. The guest init is a small static C program shipped with
+Cloche; `cloche guest-init OUTPUT` or `build_guest_init(OUTPUT)` compiles
+it. The binds are copied, hard-linked where possible, into a read-only
+ext4 image, so every file in them must be readable by the caller. The
+program runs as root of the guest with the same mounts, seccomp filter,
+limits and environment as on the other backends, without capabilities
+and with `/proc/sys`, `/proc/sysrq-trigger`, `/proc/bus`, `/proc/fs` and
+`/proc/irq` mounted read-only. Its outputs come back
+as a `newc` archive on a sparse output device of `output_mib` MiB and
+are extracted with the same rules as the other backends; a single file
+cannot exceed 4 GiB. `Outcome.boot_seconds` is the time from starting
+the monitor to the guest init connecting back over vsock.
+
 ### The command
 
 ```sh
@@ -133,6 +180,8 @@ cloche run --bind /usr --bind /lib --bind /lib64 --output greeting=/build/greeti
     /usr/bin/sh -c 'echo hello > /build/greeting'
 cloche oci-config --bind /usr /usr/bin/true
 cloche status
+cloche guest-init init
+cloche run --backend microvm --kernel vmlinux --init init --bind /usr ... /usr/bin/true
 ```
 
 `cloche run` streams the log to standard error and prints one line per
@@ -141,7 +190,11 @@ a path at the same place; `--bind SOURCE:DESTINATION` moves it. `--dir`,
 `--env NAME=VALUE`, `--name`, `--timeout`, `--max-silent-time`,
 `--max-open-files` and `--work DIR` map to the fields above. Everything
 after the program is passed to it. Since `PATH` is fixed, name programs by
-their full path, or run `/usr/bin/env PATH=/usr/bin ...`.
+their full path, or run `/usr/bin/env PATH=/usr/bin ...`. `--backend`
+chooses `namespaces`, `oci` or `microvm`; `--runtime` names the OCI
+runtime, and `--vmm`, `--vmm-path`, `--kernel`, `--init`, `--memory` and
+`--cpus` configure the virtual machine. `cloche status` accepts the same
+backend options.
 
 ## Layout
 
@@ -152,6 +205,10 @@ their full path, or run `/usr/bin/env PATH=/usr/bin ...`.
 | `environment.py` | The fixed environment |
 | `seccomp.py` | The seccomp filter, as rules and as a packed BPF program |
 | `namespaces.py` | The namespace backend: the helper that builds the sandbox and copies outputs out |
+| `oci.py` | The OCI backend: the bundle and the helper that drives the runtime |
+| `microvm.py` | The microVM backend: the input image, the initramfs, the monitor and the output archive |
+| `guest_init.c` | The guest init of the microVM backend |
+| `newc.py` | Writing and strictly reading `newc` cpio archives |
 | `runner.py` | `run`: supervises the helper, captures the log and enforces time limits |
 | `backends.py` | The `Backend` protocol and `select_backend` |
 | `probe.py` | `backend_status` and the user namespace probe |

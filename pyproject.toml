@@ -12,7 +12,9 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "GPL-2.0-only" }
 authors = [{ name = "PacketFive" }]
-keywords = ["sandbox", "namespaces", "seccomp", "isolation", "reproducible-builds", "oci"]
+keywords = [
+  "sandbox", "namespaces", "seccomp", "isolation", "reproducible-builds", "oci", "microvm",
+]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
@@ -55,7 +57,7 @@ package-dir = { cloche = "src" }
 
 # PEP 561 marker: the package ships its own type hints.
 [tool.setuptools.package-data]
-cloche = ["py.typed"]
+cloche = ["py.typed", "guest_init.c"]
 
 # Quality gates, run with 'pybootstrap check'.
 [tool.pybootstrap]
@@ -95,4 +97,5 @@ testpaths = ["tests"]
 addopts = "--cov-report=term-missing --import-mode=importlib"
 markers = [
   "requires_userns: needs unprivileged user namespaces and a C compiler that links statically",
+  "requires_microvm: needs /dev/kvm, a monitor in PATH and CLOCHE_TEST_KERNEL, a guest vmlinux",
 ]

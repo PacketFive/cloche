@@ -292,16 +292,20 @@ def test_probe_unsupported_machine(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_backend_status_lists_every_backend(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(subprocess, "run", failed_run)
+    monkeypatch.setattr("cloche.oci.find_runtime", lambda runtime: "/usr/bin/runc")
     statuses = backend_status()
     assert tuple(s.name for s in statuses) == BACKENDS == ("namespaces", "oci", "microvm")
-    assert statuses[1].reason == "not available in this release"
+    assert statuses[1].reason == statuses[0].reason
+    assert statuses[2].reason == "no guest kernel and init are configured"
 
 
 def test_select_backend_never_falls_back(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(SandboxUnavailable, match="no sandbox backend called chroot"):
         select_backend("chroot")
-    with pytest.raises(SandboxUnavailable, match="oci"):
-        select_backend("oci")
+    with pytest.raises(SandboxUnavailable, match="/nowhere/runc is not installed"):
+        select_backend("oci", runtime="/nowhere/runc")
+    with pytest.raises(SandboxUnavailable, match="no guest kernel"):
+        select_backend("microvm")
     monkeypatch.setattr(subprocess, "run", failed_run)
     with pytest.raises(SandboxUnavailable, match="cannot run here"):
         select_backend("namespaces")

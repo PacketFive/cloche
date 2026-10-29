@@ -32,11 +32,16 @@ LOG_TAIL_LINES = 25
 
 
 class Outcome(Model):
-    """A finished run: the host path of each output, the log and the time taken."""
+    """A finished run: the host path of each output, the log and the time taken.
+
+    ``boot_seconds`` is the part of ``seconds`` a backend spent booting a
+    machine, and None for a backend that boots nothing.
+    """
 
     outputs: dict[str, str]
     log: str
     seconds: float
+    boot_seconds: float | None = None
 
 
 def _tail(log: Path) -> str:
@@ -168,7 +173,9 @@ def run(
         reason = final.error or "the program failed"
     else:
         outputs = {name: str(out_dir / name) for name in spec.outputs}
-        return Outcome(outputs=outputs, log=str(log), seconds=seconds)
+        return Outcome(
+            outputs=outputs, log=str(log), seconds=seconds, boot_seconds=final.boot_seconds
+        )
     tail = _tail(log)
     raise RunFailed(
         f"{command.name}: {reason}" + (f"\nlast lines of the log:\n{tail}" if tail else "")

@@ -83,6 +83,8 @@ int main(int argc, char **argv)
 		check("mount", mount("none", "/build", "tmpfs", 0, NULL));
 		check("null", open("/dev/null", O_WRONLY));
 		check("shm", open("/dev/shm/x", O_CREAT | O_WRONLY, 0600));
+		check("core_pattern", open("/proc/sys/kernel/core_pattern", O_WRONLY));
+		check("sysrq", open("/proc/sysrq-trigger", O_WRONLY));
 		make_out();
 	} else if (!strcmp(mode, "harden")) {
 		make_out();

@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: GPL-2.0
 """Reports which sandbox backends can run on this machine.
 
-The namespace backend is tested by doing what a run does first: a fresh
-process creates the namespaces, maps its ids and mounts a tmpfs. Some
-kernels let a process create a user namespace but deny it the
-capabilities inside, so creating the namespace alone proves nothing.
+oci.py and microvm.py test their own backends. The namespace backend is
+tested by doing what a run does first: a fresh process creates the
+namespaces, maps its ids and mounts a tmpfs. Some kernels let a process
+create a user namespace but deny it the capabilities inside, so creating
+the namespace alone proves nothing.
 """
 
 from __future__ import annotations
@@ -13,12 +14,16 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from . import libc
 from .models import Model
 
+if TYPE_CHECKING:
+    from .microvm import MicroVMConfig
+
 BACKENDS: tuple[str, ...] = ("namespaces", "oci", "microvm")
-"""Every backend, in order of preference. Only namespaces works in this release."""
+"""Every backend: Linux namespaces, a rootless OCI runtime and a microVM."""
 
 _PROBE = """
 import os, sys
@@ -95,11 +100,16 @@ def namespaces_status() -> BackendStatus:
     )
 
 
-def backend_status() -> tuple[BackendStatus, ...]:
-    """Report every backend in BACKENDS, in that order."""
-    return tuple(
-        namespaces_status()
-        if name == "namespaces"
-        else BackendStatus(name=name, available=False, reason="not available in this release")
-        for name in BACKENDS
-    )
+def backend_status(
+    *, runtime: str | None = None, microvm: MicroVMConfig | None = None
+) -> tuple[BackendStatus, ...]:
+    """Report every backend in BACKENDS, in that order.
+
+    ``runtime`` and ``microvm`` are as for select_backend. Without
+    ``microvm`` the microVM backend has no guest kernel, so it is
+    reported unavailable.
+    """
+    from .microvm import microvm_status
+    from .oci import oci_status
+
+    return (namespaces_status(), oci_status(runtime), microvm_status(microvm))

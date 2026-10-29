@@ -23,9 +23,10 @@ Cloche needs no root and no daemon. It is a library first:
 
 models.py holds the data models, spec.py turns a Command into a
 SandboxSpec and an OCI runtime configuration, environment.py fixes the
-environment, seccomp.py the denied system calls, namespaces.py is the
-backend that applies a spec, runner.py supervises a run, probe.py reports
-which backends work here and cli.py is the ``cloche`` command.
+environment, seccomp.py the denied system calls, namespaces.py, oci.py
+and microvm.py are the backends that apply a spec, runner.py supervises
+a run, probe.py reports which backends work here and cli.py is the
+``cloche`` command.
 
 Names in ``__all__`` follow semantic versioning from release 1.0. A name
 is removed only after one minor release in which using it raises a
@@ -37,7 +38,10 @@ from __future__ import annotations
 from .backends import Backend, select_backend
 from .environment import FIXED_VARIABLES
 from .errors import ClocheError, InvalidCommand, RunFailed, SandboxUnavailable
+from .microvm import VMMS, MicroVMBackend, MicroVMConfig, build_guest_init
 from .models import BUILD_DIR, Bind, Command, Limits
+from .namespaces import NamespaceBackend
+from .oci import RUNTIMES, OciBackend
 from .probe import BACKENDS, BackendStatus, backend_status
 from .runner import Outcome, run
 from .spec import OciConfig, SandboxJob, SandboxSpec, make_spec, oci_config
@@ -55,14 +59,21 @@ __all__ = [
     "Command",
     "InvalidCommand",
     "Limits",
+    "MicroVMBackend",
+    "MicroVMConfig",
+    "NamespaceBackend",
+    "OciBackend",
     "OciConfig",
     "Outcome",
+    "RUNTIMES",
     "RunFailed",
     "SandboxJob",
     "SandboxSpec",
     "SandboxUnavailable",
+    "VMMS",
     "__version__",
     "backend_status",
+    "build_guest_init",
     "make_spec",
     "oci_config",
     "run",

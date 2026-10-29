@@ -3,15 +3,26 @@
 
 Usage::
 
-    cloche run [OPTIONS] PROGRAM [ARG ...]
+    cloche run [--backend NAME] [BACKEND OPTIONS] [OPTIONS] PROGRAM [ARG ...]
     cloche oci-config [OPTIONS] PROGRAM [ARG ...]
-    cloche status
+    cloche status [BACKEND OPTIONS]
+    cloche guest-init OUTPUT
 
 ``run`` runs PROGRAM in the sandbox, streams its log to stderr and, when
 it succeeds, prints one line per output: its name and the host path it
 was copied to. ``oci-config`` prints the OCI runtime configuration of the
 same sandbox instead of running it. ``status`` prints whether each
-backend can run here, and exits with 1 if none can.
+backend can run here, and exits with 1 if none can. ``guest-init``
+compiles the guest init of the microVM backend, statically, to OUTPUT.
+
+``--backend`` is namespaces (the default), oci or microvm. BACKEND
+OPTIONS configure the last two:
+
+    --runtime NAME|PATH           OCI runtime; the first of crun, runc, youki by default
+    --vmm NAME                    firecracker (default), cloud-hypervisor or openvmm
+    --vmm-path PATH               the monitor's executable, if not in PATH
+    --kernel PATH, --init PATH    guest kernel (vmlinux) and guest init
+    --memory MIB, --cpus N        size of the virtual machine
 
 OPTIONS build the Command and Limits of models.py:
 
@@ -32,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import subprocess
 import sys
 import tempfile
 from collections.abc import Sequence
@@ -41,6 +53,7 @@ from pydantic import ValidationError
 from . import libc
 from .backends import select_backend
 from .errors import ClocheError
+from .microvm import MicroVMConfig, build_guest_init
 from .models import Bind, Command, Limits
 from .probe import backend_status
 from .runner import run
@@ -83,6 +96,28 @@ def _limits(args: argparse.Namespace) -> Limits:
     )
 
 
+def _microvm(args: argparse.Namespace) -> MicroVMConfig:
+    fields = {
+        "vmm": args.vmm,
+        "vmm_path": args.vmm_path,
+        "kernel": args.kernel,
+        "init": args.init,
+        "memory_mib": args.memory,
+        "cpus": args.cpus,
+    }
+    return MicroVMConfig.model_validate({k: v for k, v in fields.items() if v is not None})
+
+
+def _backend_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--runtime", metavar="NAME|PATH", help="OCI runtime")
+    parser.add_argument("--vmm", help="firecracker, cloud-hypervisor or openvmm")
+    parser.add_argument("--vmm-path", metavar="PATH", help="the monitor's executable")
+    parser.add_argument("--kernel", metavar="PATH", help="guest kernel (vmlinux)")
+    parser.add_argument("--init", metavar="PATH", help="guest init, see guest-init")
+    parser.add_argument("--memory", type=int, metavar="MIB", help="guest memory in MiB")
+    parser.add_argument("--cpus", type=int, metavar="N", help="guest processors")
+
+
 def _command_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--bind", action="append", default=[], metavar="SOURCE[:DESTINATION]")
     parser.add_argument("--dir", action="append", default=[], metavar="PATH")
@@ -104,21 +139,28 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument(
         "--work", metavar="DIR", help="empty directory for the run, created if missing"
     )
-    run_parser.add_argument("--backend", default="namespaces", help="sandbox backend")
+    run_parser.add_argument(
+        "--backend", default="namespaces", help="namespaces (default), oci or microvm"
+    )
+    _backend_arguments(run_parser)
     _command_arguments(run_parser)
     run_parser.set_defaults(handler=cmd_run)
     config = commands.add_parser("oci-config", help="print the OCI configuration of a sandbox")
     _command_arguments(config)
     config.set_defaults(handler=cmd_oci_config)
     status = commands.add_parser("status", help="show which backends can run here")
+    _backend_arguments(status)
     status.set_defaults(handler=cmd_status)
+    guest = commands.add_parser("guest-init", help="compile the microVM guest init")
+    guest.add_argument("output", help="path of the static executable to write")
+    guest.set_defaults(handler=cmd_guest_init)
     return parser
 
 
 def cmd_run(args: argparse.Namespace) -> int:
     """Run the program and print ``NAME PATH`` for each output. Return 0."""
     command, limits = _command(args), _limits(args)
-    backend = select_backend(args.backend)
+    backend = select_backend(args.backend, runtime=args.runtime, microvm=_microvm(args))
     if args.work is None:
         work = tempfile.mkdtemp(prefix="cloche-")
     else:
@@ -145,10 +187,21 @@ def cmd_oci_config(args: argparse.Namespace) -> int:
 
 def cmd_status(args: argparse.Namespace) -> int:
     """Print one line per backend. Return 1 if no backend can run."""
-    statuses = backend_status()
+    statuses = backend_status(runtime=args.runtime, microvm=_microvm(args))
     for status in statuses:
         print(f"{status.name}: {'available' if status.available else status.reason}")
     return 0 if any(status.available for status in statuses) else 1
+
+
+def cmd_guest_init(args: argparse.Namespace) -> int:
+    """Compile the guest init to ``args.output``. Return 0, or 1 if compiling fails."""
+    try:
+        build_guest_init(args.output)
+    except subprocess.CalledProcessError as error:
+        print(f"cloche: cannot compile the guest init:\n{error.stderr}", file=sys.stderr)
+        return 1
+    print(args.output)
+    return 0
 
 
 def _validation_message(error: ValidationError) -> str:

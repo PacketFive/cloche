@@ -69,7 +69,7 @@ def test_run(
         seen.update(command=command, work=work, limits=limits, backend=backend)
         return Outcome(outputs={"out": f"{work}/out/out"}, log=f"{work}/run.log", seconds=0.1)
 
-    monkeypatch.setattr("cloche.cli.select_backend", lambda name: f"backend {name}")
+    monkeypatch.setattr("cloche.cli.select_backend", lambda name, **kwargs: f"backend {name}")
     monkeypatch.setattr("cloche.cli.run", fake_run)
     argv = ["run", "--work", str(tmp_path), "--name", "greet", "--timeout", "5"]
     assert (
@@ -90,7 +90,7 @@ def test_run(
 def test_run_creates_the_named_work_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("cloche.cli.select_backend", lambda name: None)
+    monkeypatch.setattr("cloche.cli.select_backend", lambda name, **kwargs: None)
     monkeypatch.setattr(
         "cloche.cli.run", lambda *args, **kwargs: Outcome(outputs={}, log="", seconds=0)
     )
@@ -106,7 +106,7 @@ def test_run_makes_a_work_directory(monkeypatch: pytest.MonkeyPatch) -> None:
         works.append(work)
         return Outcome(outputs={}, log=f"{work}/run.log", seconds=0)
 
-    monkeypatch.setattr("cloche.cli.select_backend", lambda name: None)
+    monkeypatch.setattr("cloche.cli.select_backend", lambda name, **kwargs: None)
     monkeypatch.setattr("cloche.cli.run", fake_run)
     assert cli.main(["run", "--bind", "/usr", "/usr/bin/true"]) == 0
     work = Path(works[0])
@@ -121,7 +121,7 @@ def test_run_failure(
     def failing(*args: object, **kwargs: object) -> Outcome:
         raise RunFailed("true: the program exited with status 1")
 
-    monkeypatch.setattr("cloche.cli.select_backend", lambda name: None)
+    monkeypatch.setattr("cloche.cli.select_backend", lambda name, **kwargs: None)
     monkeypatch.setattr("cloche.cli.run", failing)
     assert cli.main(["run", "--work", str(tmp_path), "--bind", "/usr", "/usr/bin/true"]) == 1
     assert capsys.readouterr().err == "cloche: true: the program exited with status 1\n"
@@ -133,7 +133,7 @@ def test_run_os_error(
     def failing(*args: object, **kwargs: object) -> Outcome:
         raise FileExistsError(17, "File exists", str(tmp_path))
 
-    monkeypatch.setattr("cloche.cli.select_backend", lambda name: None)
+    monkeypatch.setattr("cloche.cli.select_backend", lambda name, **kwargs: None)
     monkeypatch.setattr("cloche.cli.run", failing)
     assert cli.main(["run", "--work", str(tmp_path), "--bind", "/usr", "/usr/bin/true"]) == 1
     assert capsys.readouterr().err == f"cloche: {tmp_path}: File exists\n"
@@ -149,10 +149,48 @@ def test_status(capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPa
         return subprocess.CompletedProcess([], 1, "", "PermissionError: denied\n")
 
     monkeypatch.setattr(subprocess, "run", failed)
-    assert cli.main(["status"]) == 1
+    monkeypatch.setattr("cloche.oci.find_runtime", lambda runtime: None)
+    assert cli.main(["status", "--runtime", "crun"]) == 1
     lines = capsys.readouterr().out.splitlines()
     assert lines[0].startswith("namespaces: unprivileged user namespaces do not work")
     assert lines[1:] == [
-        "oci: not available in this release",
-        "microvm: not available in this release",
+        "oci: crun is not installed",
+        "microvm: no guest kernel and init are configured",
     ]
+
+
+def test_status_reads_the_microvm_options(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kernel = tmp_path / "vmlinux"
+    kernel.write_bytes(b"")
+    argv = ["status", "--vmm", "cloud-hypervisor", "--vmm-path", str(tmp_path / "ch")]
+    argv += ["--kernel", str(kernel), "--init", str(kernel), "--memory", "256", "--cpus", "1"]
+    cli.main(argv)
+    assert f"microvm: {tmp_path}/ch is not installed" in capsys.readouterr().out
+
+
+def test_status_rejects_a_bad_microvm_option(capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["status", "--memory", "1"]) == 1
+    assert "memory_mib" in capsys.readouterr().err
+
+
+def test_guest_init(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    built: list[str] = []
+    monkeypatch.setattr("cloche.cli.build_guest_init", built.append)
+    assert cli.main(["guest-init", str(tmp_path / "init")]) == 0
+    assert built == [str(tmp_path / "init")]
+    assert capsys.readouterr().out == f"{tmp_path}/init\n"
+
+
+def test_guest_init_compiler_fails(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def failing(output: str) -> None:
+        raise subprocess.CalledProcessError(1, ["cc"], "", "cc: error\n")
+
+    monkeypatch.setattr("cloche.cli.build_guest_init", failing)
+    assert cli.main(["guest-init", str(tmp_path / "init")]) == 1
+    assert "cannot compile the guest init:\ncc: error" in capsys.readouterr().err
