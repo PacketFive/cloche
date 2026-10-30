@@ -148,6 +148,19 @@ list of mounts, ID maps, limits and seccomp rules a backend applies, and
 `select_backend` returns one or raises; Cloche never falls back to a
 weaker backend.
 
+### Resource limits
+
+`Limits` also takes `max_memory` (bytes), `max_cpu` (CPUs, such as `0.5`)
+and `max_processes`. Only a cgroup can enforce these, so they apply when
+the calling process runs in a delegated cgroup version 2 subtree, for
+example a systemd service with `Delegate=yes`. Each run then gets its own
+child cgroup with `memory.max`, `cpu.max` and `pids.max` set, swap turned
+off, and every process left in it is killed when the run ends. The first
+run moves the processes of the delegated cgroup into a child named
+`supervisor`, since a cgroup with processes cannot pass controllers on.
+Without a delegated cgroup these three limits are not applied and the run
+goes ahead; `cgroup_status()` and `cloche status` say why.
+
 ### Other backends
 
 `run` uses the namespace backend unless `backend` names another:
@@ -198,13 +211,14 @@ cloche run --backend microvm --kernel vmlinux --init init --bind /usr ... /usr/b
 output: its name and the host path it was copied to. `--bind SOURCE` binds
 a path at the same place; `--bind SOURCE:DESTINATION` moves it. `--dir`,
 `--env NAME=VALUE`, `--name`, `--timeout`, `--max-silent-time`,
-`--max-open-files` and `--work DIR` map to the fields above. Everything
+`--max-open-files`, `--max-memory MIB`, `--max-cpu N`, `--max-processes N`
+and `--work DIR` map to the fields above. Everything
 after the program is passed to it. Since `PATH` is fixed, name programs by
 their full path, or run `/usr/bin/env PATH=/usr/bin ...`. `--backend`
 chooses `namespaces`, `oci` or `microvm`; `--runtime` names the OCI
 runtime, and `--vmm`, `--vmm-path`, `--kernel`, `--init`, `--memory` and
 `--cpus` configure the virtual machine. `cloche status` accepts the same
-backend options.
+backend options and ends with a line on cgroup limits.
 
 ## Layout
 
@@ -220,6 +234,7 @@ backend options.
 | `guest_init.c` | The guest init of the microVM backend |
 | `newc.py` | Writing and strictly reading `newc` cpio archives |
 | `runner.py` | `run`: supervises the helper, captures the log and enforces time limits |
+| `cgroups.py` | The cgroup of each run under a delegated subtree, and `cgroup_status` |
 | `backends.py` | The `Backend` protocol and `select_backend` |
 | `probe.py` | `backend_status` and the user namespace probe |
 | `libc.py` | The few system calls Python does not expose |

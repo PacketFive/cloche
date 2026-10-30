@@ -12,7 +12,8 @@ Usage::
 it succeeds, prints one line per output: its name and the host path it
 was copied to. ``oci-config`` prints the OCI runtime configuration of the
 same sandbox instead of running it. ``status`` prints whether each
-backend can run here, and exits with 1 if none can. ``guest-init``
+backend can run here, and whether runs get their own cgroup, and exits
+with 1 if no backend can run. ``guest-init``
 compiles the guest init of the microVM backend, statically, to OUTPUT.
 
 ``--backend`` is namespaces (the default), oci or microvm. BACKEND
@@ -34,6 +35,8 @@ OPTIONS build the Command and Limits of models.py:
     --work DIR                    empty directory for the run, created if missing;
                                   a new temporary one by default
     --timeout SECONDS, --max-silent-time SECONDS, --max-open-files N
+    --max-memory MIB, --max-cpu N, --max-processes N
+                                  cgroup limits, applied in a delegated cgroup
 
 Every option maps to a field of a model, so the command and the library
 always behave the same way.
@@ -52,6 +55,7 @@ from pydantic import ValidationError
 
 from . import libc
 from .backends import select_backend
+from .cgroups import status as cgroup_status
 from .errors import ClocheError
 from .microvm import MicroVMConfig, build_guest_init
 from .models import Bind, Command, Limits
@@ -93,6 +97,9 @@ def _limits(args: argparse.Namespace) -> Limits:
         timeout=args.timeout,
         max_silent_time=args.max_silent_time,
         max_open_files=args.max_open_files,
+        max_memory=args.max_memory * 1024 * 1024 if args.max_memory is not None else None,
+        max_cpu=args.max_cpu,
+        max_processes=args.max_processes,
     )
 
 
@@ -127,6 +134,9 @@ def _command_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--timeout", type=int, metavar="SECONDS")
     parser.add_argument("--max-silent-time", type=int, metavar="SECONDS")
     parser.add_argument("--max-open-files", type=int, default=1024, metavar="N")
+    parser.add_argument("--max-memory", type=int, metavar="MIB")
+    parser.add_argument("--max-cpu", type=float, metavar="N")
+    parser.add_argument("--max-processes", type=int, metavar="N")
     parser.add_argument("program", help="absolute path of the program inside the sandbox")
     parser.add_argument("args", nargs=argparse.REMAINDER, help="arguments of the program")
 
@@ -190,6 +200,8 @@ def cmd_status(args: argparse.Namespace) -> int:
     statuses = backend_status(runtime=args.runtime, microvm=_microvm(args))
     for status in statuses:
         print(f"{status.name}: {'available' if status.available else status.reason}")
+    cgroup = cgroup_status()
+    print(f"cgroups: {f'available in {cgroup.path}' if cgroup.available else cgroup.reason}")
     return 0 if any(status.available for status in statuses) else 1
 
 

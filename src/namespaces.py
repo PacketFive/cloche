@@ -6,7 +6,8 @@ helper, with the SandboxJob as JSON on stdin. A fresh process is used
 because the kernel refuses to move a process with several threads into a
 new user namespace, and forking a daemon that runs threads is unsafe.
 
-The helper creates the user, mount, network, UTS, IPC and PID
+The helper first joins the run's cgroup, if it has one, so the limits
+there cover everything it starts. It then creates the user, mount, network, UTS, IPC and PID
 namespaces, maps its own uid and gid to root inside them and builds the
 sandbox filesystem on a tmpfs at ``job.root``. It then forks the
 program's PID 1, which mounts /proc, sets the host name, brings up the
@@ -35,7 +36,7 @@ import subprocess
 import sys
 from typing import TYPE_CHECKING, BinaryIO
 
-from . import libc, seccomp
+from . import cgroups, libc, seccomp
 from .spec import HelperReport, Mount, SandboxJob, SandboxSpec
 
 if TYPE_CHECKING:
@@ -339,6 +340,8 @@ def _run(job: SandboxJob, report: BinaryIO) -> HelperReport:
     libc.prctl(libc.PR_SET_PDEATHSIG, signal.SIGKILL)
     if os.getppid() != job.parent_pid:
         return HelperReport(kind="failed", error="the supervisor exited")
+    if job.cgroup is not None:
+        cgroups.join(job.cgroup)
     spec: SandboxSpec = job.spec
     _setup(job)
     alive_read, alive_write = os.pipe2(os.O_CLOEXEC)

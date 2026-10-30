@@ -6,6 +6,12 @@ everything the program prints to ``<work_dir>/run.log``, passes each chunk
 to ``on_log``, and kills the program when the wall-clock limit or the
 silence limit runs out. When the program succeeds each output has been
 copied to ``<work_dir>/out/<name>``.
+
+When Limits set memory, CPU or process limits and the process runs in a
+delegated cgroup, the run gets its own cgroup (cgroups.py). The
+namespace helper joins it as it starts; the process of any other backend
+is moved into it as soon as it starts. Removing the cgroup after the run
+ends whatever the program left behind.
 """
 
 from __future__ import annotations
@@ -20,7 +26,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
-from . import libc
+from . import cgroups, libc
 from .errors import RunFailed
 from .models import Command, Limits, Model
 from .spec import HelperReport, SandboxJob, make_spec
@@ -114,6 +120,15 @@ def _supervise(
     return reports, timed_out
 
 
+def _move(process: subprocess.Popen[bytes], cgroup: str) -> None:
+    """Move the backend's process into ``cgroup`` unless it has exited."""
+    try:
+        with open(os.path.join(cgroup, "cgroup.procs"), "w", encoding="ascii") as file:
+            file.write(str(process.pid))
+    except ProcessLookupError:
+        pass
+
+
 def run(
     command: Command,
     work_dir: str,
@@ -143,7 +158,10 @@ def run(
     root, out_dir, log = work / "root", work / "out", work / "run.log"
     root.mkdir(mode=0o700)
     out_dir.mkdir(mode=0o700)
-    job = SandboxJob(spec=spec, root=str(root), out_dir=str(out_dir), parent_pid=os.getpid())
+    cgroup = cgroups.create(limits)
+    job = SandboxJob(
+        spec=spec, root=str(root), out_dir=str(out_dir), parent_pid=os.getpid(), cgroup=cgroup
+    )
     started = time.monotonic()
     log_read, log_write = os.pipe2(os.O_CLOEXEC)
     status_read, status_write = os.pipe2(os.O_CLOEXEC)
@@ -152,6 +170,8 @@ def run(
     try:
         try:
             process = backend.start(job, status_fd=status_write, log_fd=log_write)
+            if cgroup is not None:
+                _move(process, cgroup)
         finally:
             os.close(log_write)
             os.close(status_write)
@@ -163,6 +183,8 @@ def run(
         if process is not None and process.poll() is None:
             process.kill()
             process.wait()
+        if cgroup is not None:
+            cgroups.remove(cgroup)
     seconds = time.monotonic() - started
     final = reports[-1] if reports and reports[-1].kind != "started" else None
     if timed_out is not None:

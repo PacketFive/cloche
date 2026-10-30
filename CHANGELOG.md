@@ -4,6 +4,19 @@ All notable changes to Cloche are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-10-30
+
+### Added
+
+- `Limits.max_memory`, `Limits.max_cpu` and `Limits.max_processes`,
+  enforced through a child cgroup per run when the caller runs in a
+  delegated cgroup version 2 subtree. The cgroup is removed after the
+  run, which ends every process left in it.
+- `cgroup_status` and `CgroupStatus`, and a `cgroups:` line in
+  `cloche status`.
+- The `--max-memory`, `--max-cpu` and `--max-processes` options of
+  `cloche run`.
+
 ## [1.0.0] - 2026-10-29
 
 First release, published on PyPI.

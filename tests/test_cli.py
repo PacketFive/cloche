@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from cloche import Command, Limits, Outcome, RunFailed, cli
+from cloche import CgroupStatus, Command, Limits, Outcome, RunFailed, cli
 
 CONFIG = ["oci-config", "--bind", "/usr:/tools", "--dir", "/out", "--output", "out=/out/x"]
 
@@ -150,13 +150,20 @@ def test_status(capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPa
 
     monkeypatch.setattr(subprocess, "run", failed)
     monkeypatch.setattr("cloche.oci.find_runtime", lambda runtime: None)
+    monkeypatch.setattr(
+        cli, "cgroup_status", lambda: CgroupStatus(available=False, reason="not delegated")
+    )
     assert cli.main(["status", "--runtime", "crun"]) == 1
     lines = capsys.readouterr().out.splitlines()
     assert lines[0].startswith("namespaces: unprivileged user namespaces do not work")
     assert lines[1:] == [
         "oci: crun is not installed",
         "microvm: no guest kernel and init are configured",
+        "cgroups: not delegated",
     ]
+    monkeypatch.setattr(cli, "cgroup_status", lambda: CgroupStatus(available=True, path="/cg"))
+    cli.main(["status"])
+    assert capsys.readouterr().out.splitlines()[-1] == "cgroups: available in /cg"
 
 
 def test_status_reads_the_microvm_options(

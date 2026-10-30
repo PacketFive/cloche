@@ -82,13 +82,15 @@ class SandboxJob(Model):
 
     ``root`` is an empty host directory the sandbox root is mounted on,
     and each output is copied into ``out_dir`` under its name.
-    ``parent_pid`` is the process that supervises the run.
+    ``parent_pid`` is the process that supervises the run. ``cgroup`` is
+    the cgroup the helper joins before anything else, if the run has one.
     """
 
     spec: SandboxSpec
     root: str
     out_dir: str
     parent_pid: int
+    cgroup: str | None = None
 
 
 def _check(command: Command) -> None:

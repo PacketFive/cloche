@@ -78,11 +78,20 @@ class Limits(Model):
     ``max_silent_time`` one that writes nothing to its log for that many
     seconds. None means no limit. ``max_open_files`` is the program's
     ``RLIMIT_NOFILE``.
+
+    ``max_memory`` in bytes, ``max_cpu`` in CPUs and ``max_processes``
+    become ``memory.max``, ``cpu.max`` and ``pids.max`` of the run's own
+    cgroup. They apply only when the process runs in a delegated cgroup
+    version 2 subtree (cgroups.py); otherwise the run goes ahead without
+    them.
     """
 
     timeout: int | None = Field(default=None, gt=0)
     max_silent_time: int | None = Field(default=None, gt=0)
     max_open_files: int = Field(default=1024, ge=64, le=1048576)
+    max_memory: int | None = Field(default=None, ge=1 << 20)
+    max_cpu: float | None = Field(default=None, ge=0.01)
+    max_processes: int | None = Field(default=None, ge=8)
 
 
 class Command(Model):
