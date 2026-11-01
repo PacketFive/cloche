@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import ConfigDict, Field
-from pydantic.alias_generators import to_camel
+from espalier import ConfigDict, Field
+from espalier.alias_generators import to_camel
 
 from . import seccomp
 from .environment import program_environment

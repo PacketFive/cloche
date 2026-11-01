@@ -33,7 +33,7 @@ PR_CAP_AMBIENT = 47
 PR_CAP_AMBIENT_CLEAR_ALL = 4
 SECCOMP_MODE_FILTER = 2
 
-MACHINES: tuple[str, ...] = ("x86_64", "aarch64")
+MACHINES: tuple[str, ...] = ("x86_64", "aarch64", "riscv64")
 
 # System call numbers that glibc has no wrapper for.
 _SYSCALLS: dict[str, dict[str, int]] = {
@@ -42,6 +42,10 @@ _SYSCALLS: dict[str, dict[str, int]] = {
         "capset": 126,
     },
     "aarch64": {
+        "pivot_root": 41,
+        "capset": 91,
+    },
+    "riscv64": {
         "pivot_root": 41,
         "capset": 91,
     },

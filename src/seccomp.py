@@ -22,8 +22,12 @@ import struct
 from . import libc
 from .models import Model
 
-AUDIT_ARCH: dict[str, int] = {"x86_64": 0xC000003E, "aarch64": 0xC00000B7}
-OCI_ARCH: dict[str, str] = {"x86_64": "SCMP_ARCH_X86_64", "aarch64": "SCMP_ARCH_AARCH64"}
+AUDIT_ARCH: dict[str, int] = {"x86_64": 0xC000003E, "aarch64": 0xC00000B7, "riscv64": 0xC00000F3}
+OCI_ARCH: dict[str, str] = {
+    "x86_64": "SCMP_ARCH_X86_64",
+    "aarch64": "SCMP_ARCH_AARCH64",
+    "riscv64": "SCMP_ARCH_RISCV64",
+}
 
 # x86-64 marks x32 calls by setting this bit in the call number.
 X32_SYSCALL_BIT = 0x40000000
@@ -81,7 +85,8 @@ RULES: tuple[SeccompRule, ...] = (
     SeccompRule(name="io_uring_register"),
 )
 
-# AArch64 has no chmod; its other numbers come from the generic table.
+# AArch64 and RISC-V 64 have no chmod; their other numbers come from
+# the generic table of the kernel, so they are the same.
 SYSCALL_NUMBERS: dict[str, dict[str, int]] = {
     "x86_64": {
         "chmod": 90,
@@ -115,6 +120,7 @@ SYSCALL_NUMBERS: dict[str, dict[str, int]] = {
         "io_uring_register": 427,
     },
 }
+SYSCALL_NUMBERS["riscv64"] = dict(SYSCALL_NUMBERS["aarch64"])
 
 Instruction = tuple[int, int, int, int]
 

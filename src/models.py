@@ -4,7 +4,7 @@
 A Command says what to run and what the program may see: the host paths
 bound read-only into the sandbox, the empty writable directories, and the
 outputs to copy out when it succeeds. Limits says how long it may run.
-Both are validated by Pydantic when they are made, so a Command that
+Both are validated by Espalier when they are made, so a Command that
 exists is well formed; make_spec (spec.py) then checks the rules that
 relate its fields to each other.
 
@@ -18,7 +18,7 @@ import posixpath
 import re
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
+from espalier import AfterValidator, BaseModel, ConfigDict, Field, field_validator
 
 BUILD_DIR = "/build"
 """The working directory of the program, an empty tmpfs."""

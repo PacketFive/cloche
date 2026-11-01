@@ -158,8 +158,8 @@ def test_openvmm_command() -> None:
 
 
 def test_status_unsupported_machine(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("cloche.microvm.libc.machine", lambda: "riscv64")
-    assert microvm_status(config()).reason == "riscv64 is not supported"
+    monkeypatch.setattr("cloche.microvm.libc.machine", lambda: "ppc64le")
+    assert microvm_status(config()).reason == "ppc64le is not supported"
 
 
 def test_status_needs_kernel_and_init(tmp_path: Path) -> None:

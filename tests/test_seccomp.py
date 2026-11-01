@@ -45,14 +45,14 @@ def call(machine: str, name: str, *args: int) -> int:
     return run(program, number, seccomp.AUDIT_ARCH[machine], *args)
 
 
-@pytest.mark.parametrize("machine", ["x86_64", "aarch64"])
+@pytest.mark.parametrize("machine", ["x86_64", "aarch64", "riscv64"])
 def test_unconditional_denials(machine: str) -> None:
     for rule in seccomp.RULES:
         if rule.arg is None and rule.name in seccomp.SYSCALL_NUMBERS[machine]:
             assert call(machine, rule.name) == DENY, rule.name
 
 
-@pytest.mark.parametrize("machine", ["x86_64", "aarch64"])
+@pytest.mark.parametrize("machine", ["x86_64", "aarch64", "riscv64"])
 @pytest.mark.parametrize("name", ["chmod", "fchmod", "fchmodat", "fchmodat2"])
 def test_chmod_denies_only_setid_bits(machine: str, name: str) -> None:
     if name not in seccomp.SYSCALL_NUMBERS[machine]:
@@ -71,7 +71,7 @@ def test_chmod_denies_only_setid_bits(machine: str, name: str) -> None:
     assert call(machine, name, *mode(stat.S_ISGID | 0o755)) == DENY
 
 
-@pytest.mark.parametrize("machine", ["x86_64", "aarch64"])
+@pytest.mark.parametrize("machine", ["x86_64", "aarch64", "riscv64"])
 def test_other_calls_are_allowed(machine: str) -> None:
     program = seccomp.filter_program(machine)
     for number in (0, 1, 59, 221, 500):
@@ -93,8 +93,8 @@ def test_x32_calls_are_killed() -> None:
 
 
 def test_unknown_machine() -> None:
-    with pytest.raises(ValueError, match="riscv64"):
-        seccomp.instructions("riscv64")
+    with pytest.raises(ValueError, match="ppc64le"):
+        seccomp.instructions("ppc64le")
 
 
 def test_every_rule_has_numbers() -> None:
@@ -102,6 +102,16 @@ def test_every_rule_has_numbers() -> None:
         known = [m for m, numbers in seccomp.SYSCALL_NUMBERS.items() if rule.name in numbers]
         assert known, rule.name
     assert "chmod" not in seccomp.SYSCALL_NUMBERS["aarch64"]
+    assert "chmod" not in seccomp.SYSCALL_NUMBERS["riscv64"]
+
+
+def test_riscv64_filter() -> None:
+    program = seccomp.filter_program("riscv64")
+    arch = seccomp.AUDIT_ARCH["riscv64"]
+    assert arch == 0xC00000F3
+    assert run(program, 219, arch) == DENY
+    assert run(program, 219, seccomp.AUDIT_ARCH["aarch64"]) == KILL
+    assert seccomp.OCI_ARCH["riscv64"] == "SCMP_ARCH_RISCV64"
 
 
 def test_oci_entries() -> None:

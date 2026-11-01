@@ -27,7 +27,7 @@ classifiers = [
   "Topic :: Software Development :: Build Tools",
   "Typing :: Typed",
 ]
-dependencies = ["pydantic>=2.6,<3"]
+dependencies = ["pyrixos-espalier>=1.0,<2"]
 
 [project.urls]
 Homepage = "https://github.com/PacketFive/cloche"

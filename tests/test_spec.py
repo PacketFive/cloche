@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
+from espalier import ValidationError
 
 from cloche import (
     BACKENDS,
@@ -166,8 +166,8 @@ def test_output_below_build() -> None:
 
 
 def test_spec_rejects_unknown_machine() -> None:
-    with pytest.raises(SandboxUnavailable, match="riscv64"):
-        spec_of(command(), machine="riscv64")
+    with pytest.raises(SandboxUnavailable, match="ppc64le"):
+        spec_of(command(), machine="ppc64le")
 
 
 def test_oci_config() -> None:
@@ -286,8 +286,8 @@ def test_probe_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_probe_unsupported_machine(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(probe.libc, "machine", lambda: "riscv64")
-    assert probe.namespaces_status().reason == "riscv64 is not supported"
+    monkeypatch.setattr(probe.libc, "machine", lambda: "ppc64le")
+    assert probe.namespaces_status().reason == "ppc64le is not supported"
 
 
 def test_backend_status_lists_every_backend(monkeypatch: pytest.MonkeyPatch) -> None:

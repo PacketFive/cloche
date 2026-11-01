@@ -48,7 +48,7 @@ Stable since 1.0.0. Three backends run the same sandbox:
 | `oci` | A rootless OCI runtime: crun, runc or youki | The runtime, and unprivileged user namespaces |
 | `microvm` | A virtual machine with its own kernel, under Firecracker, Cloud Hypervisor or OpenVMM | KVM, the monitor, `mkfs.ext4`, a guest kernel and the guest init |
 
-The namespace backend works on x86_64 and aarch64 Linux. The OCI backend
+The namespace backend works on x86_64, aarch64 and riscv64 Linux. The OCI backend
 is tested with runc and crun, and the microVM backend on x86_64 with
 Firecracker and Cloud Hypervisor. OpenVMM support follows its documented
 command line and is untested. The coverage floor is 80%.
@@ -75,7 +75,9 @@ pybootstrap check
 ```
 
 Python 3.12 or later is required. The only runtime dependency is
-Pydantic 2. The `dev` dependency group installs
+[Espalier](https://github.com/PacketFive/espalier) (`pyrixos-espalier`),
+a pure-Python subset of the pydantic 2 API, so Cloche installs no
+compiled code. The `dev` dependency group installs
 [pybootstrap](https://github.com/packetfive/pybootstrap) and the tools its
 gates drive: ruff, pyright, and pytest with coverage. The tests in
 `tests/test_run.py` run real sandboxes on every backend; they need
@@ -116,7 +118,7 @@ returns an `Outcome` with the host path of each output, the path of the
 log, and the run time. The log holds everything the program wrote to its
 standard output and error; pass `on_log` to receive it as it arrives.
 
-Every field is checked by Pydantic when the model is created, and
+Every field is checked by Espalier when the model is created, and
 `make_spec` checks how the fields fit together before anything starts:
 
 | Field | Meaning |
@@ -224,7 +226,7 @@ backend options and ends with a line on cgroup limits.
 
 | Module | Role |
 | --- | --- |
-| `models.py` | `Command`, `Bind` and `Limits`, the Pydantic models a caller fills in |
+| `models.py` | `Command`, `Bind` and `Limits`, the models a caller fills in |
 | `spec.py` | `make_spec`, the `SandboxSpec` model and the OCI runtime configuration |
 | `environment.py` | The fixed environment |
 | `seccomp.py` | The seccomp filter, as rules and as a packed BPF program |

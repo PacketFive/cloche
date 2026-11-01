@@ -4,6 +4,20 @@ All notable changes to Cloche are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-10-31
+
+### Added
+
+- RISC-V 64: the seccomp filter, its OCI form and the namespace backend
+  support `riscv64`, with audit architecture `0xC00000F3` and the
+  system call numbers of the kernel's generic table.
+
+### Changed
+
+- The models use Espalier (`pyrixos-espalier`) in place of pydantic 2,
+  so Cloche and its dependencies are pure Python. The models, their
+  validation and the OCI JSON they write are unchanged.
+
 ## [1.1.0] - 2026-10-30
 
 ### Added

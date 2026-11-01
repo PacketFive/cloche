@@ -24,7 +24,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from pydantic import ValidationError
+from espalier import ValidationError
 
 from . import cgroups, libc
 from .errors import RunFailed

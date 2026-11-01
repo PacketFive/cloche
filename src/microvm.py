@@ -45,7 +45,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO, Literal
 
-from pydantic import Field
+from espalier import Field
 
 from . import libc, newc, seccomp
 from .models import Model

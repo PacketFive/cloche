@@ -51,7 +51,7 @@ import sys
 import tempfile
 from collections.abc import Sequence
 
-from pydantic import ValidationError
+from espalier import ValidationError
 
 from . import libc
 from .backends import select_backend
