@@ -10,6 +10,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - The package metadata names Weqaar Janjua as the author, with PacketFive
   as the maintainer.
+- The quality gates run with coldframe from PyPI, the new name of
+  pybootstrap, and read their settings from `[tool.coldframe]`.
 
 ## [1.2.0] - 2026-10-31
 

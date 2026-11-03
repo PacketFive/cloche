@@ -37,11 +37,9 @@ Issues = "https://github.com/PacketFive/cloche/issues"
 
 [dependency-groups]
 # Everything the quality gates need, installed with "pip install --group dev"
-# (pip 25.1 or later). Groups are not part of the package metadata, so the
-# pybootstrap name on PyPI, which belongs to an unrelated placeholder, can be
-# replaced by its repository here.
+# (pip 25.1 or later).
 dev = [
-  "pybootstrap @ git+https://github.com/packetfive/pybootstrap.git",
+  "coldframe>=0.1",
   "ruff>=0.4",
   "pyright>=1.1",
   "pytest>=8",
@@ -63,8 +61,8 @@ package-dir = { cloche = "src" }
 [tool.setuptools.package-data]
 cloche = ["py.typed", "guest_init.c"]
 
-# Quality gates, run with 'pybootstrap check'.
-[tool.pybootstrap]
+# Quality gates, run with 'coldframe check'.
+[tool.coldframe]
 gates = ["format", "lint", "typecheck", "test"]
 coverage-min = 80
 coverage-package = "cloche"

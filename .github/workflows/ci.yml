@@ -42,7 +42,7 @@ jobs:
 
       # The github format turns findings into annotations on the changed lines.
       - name: Run the quality gates
-        run: pybootstrap check --junit-dir .quality --format github
+        run: coldframe check --junit-dir .quality --format github
 
       - name: Keep the gate results
         if: always()

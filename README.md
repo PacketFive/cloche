@@ -71,14 +71,14 @@ To work on Cloche itself:
 python -m pip install --upgrade "pip>=25.1"
 pip install --group dev
 pip install --config-settings editable_mode=strict -e .
-pybootstrap check
+coldframe check
 ```
 
 Python 3.12 or later is required. The only runtime dependency is
 [Espalier](https://github.com/PacketFive/espalier) (`pyrixos-espalier`),
 a pure-Python subset of the pydantic 2 API, so Cloche installs no
 compiled code. The `dev` dependency group installs
-[pybootstrap](https://github.com/packetfive/pybootstrap) and the tools its
+[coldframe](https://pypi.org/project/coldframe/) and the tools its
 gates drive: ruff, pyright, and pytest with coverage. The tests in
 `tests/test_run.py` run real sandboxes on every backend; they need
 unprivileged user namespaces and a C compiler that links statically, and
