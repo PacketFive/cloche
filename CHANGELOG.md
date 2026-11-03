@@ -4,6 +4,13 @@ All notable changes to Cloche are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-11-02
+
+### Changed
+
+- The package metadata names Weqaar Janjua as the author, with PacketFive
+  as the maintainer.
+
 ## [1.2.0] - 2026-10-31
 
 ### Added
